@@ -1,0 +1,7 @@
+numpy
+gym
+lightgbm
+matplotlib
+pybullet
+python-box
+stable-baselines3
