@@ -4,7 +4,6 @@ import numdifftools as nd
 import gym
 import lightgbm as lgbm
 import pybullet_envs
-import gym_cartpole_swingup
 import matplotlib.pyplot as plt
 import copy
 from box import Box
@@ -29,8 +28,9 @@ def evaluate(model, env, num_episodes=10):
 
         all_episode_rewards.append(sum(episode_rewards))
     mean_episode_reward = np.mean(all_episode_rewards)
+    std = np.std(all_episode_rewards)
     print("Mean reward:", mean_episode_reward, "Num episodes:", num_episodes)
-    return mean_episode_reward
+    return mean_episode_reward, std
 
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
@@ -220,6 +220,8 @@ def main():
 
     s = env.reset()
     Rs = []
+    Ts = []
+    Ss = []
     while timesteps < train_timesteps:
         explore = (np.random.rand() < eps) or (timesteps < warmup)
         if explore:
@@ -264,7 +266,7 @@ def main():
 
             # eval
             if timesteps % eval_every == 0:
-                eval_r = evaluate(actor, env, num_episodes=15)
+                eval_r, eval_std = evaluate(actor, env, num_episodes=15)
 
                 if eval_r > best_R:
                     best_R = eval_r
@@ -280,6 +282,8 @@ def main():
                     critic_params.params['learning_rate'] *= 0.75
                 else:
                     Rs.append(eval_r)
+                    Ts.append(timesteps)
+                    Ss.append(eval_std)
 
         timesteps += 1
         s = s_p
@@ -287,13 +291,15 @@ def main():
             s = env.reset()
 
 
-    y = moving_average(Rs, 5)
-    x = np.arange(len(y))
-    plt.plot(x, y)
-    plt.savefig('fig.png')
+    # r = moving_average(Rs, 5)
+    # t = moving_average(Ts, 5)
+    # s = moving_average(Ss, 5)
+
+    np.savetxt('ddpgbdt_results/ddpgbdt_t.npy', Ts)
+    np.savetxt('ddpgbdt_results/ddpgbdt_r.npy', Rs)
+    np.savetxt('ddpgbdt_results/ddpgbdt_s.npy', Ss)
 
     
 
 if __name__ == '__main__':
     main()
-

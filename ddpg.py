@@ -1,6 +1,5 @@
 import numpy as np
 import gym
-import gym_cartpole_swingup
 import pybullet_envs
 from stable_baselines3 import DDPG, SAC, TD3
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -15,7 +14,7 @@ def moving_average(x, w):
 # env = gym.make('Pendulum-v0') # 3s 1a
 env = gym.make('InvertedPendulumBulletEnv-v0')
 
-model = DDPG('MlpPolicy', env, verbose=1)
+model = DDPG('MlpPolicy', env, verbose=0, seed=0)
 # model = TD3('MlpPolicy', env, verbose=1)
 # model = SAC('MlpPolicy', env, verbose=1)
 
@@ -23,52 +22,32 @@ obs = env.reset()
 gamma = 0.99
 R = 0
 Rs = []
+Ss = []
+Ts = []
 
 T = 0
-while T < 100000:
-    bs = 500
+while T < 30000:
+    bs = 100
     # eval loop
-    R, _ = evaluate_policy(model, env, n_eval_episodes=15)
+    R, std = evaluate_policy(model, env, n_eval_episodes=10)
+    if R == 1000:
+        model.save('models/ddpg_solved')
+
     print(R)
     Rs.append(R)
+    Ss.append(std)
+    Ts.append(T)
     model.learn(total_timesteps=bs)
     T += bs
 
-y = moving_average(Rs, 5)
-x = np.arange(len(y))
-plt.plot(x, y)
-plt.savefig('ddpg_{}.png'.format(env.spec.id))
+# y = moving_average(Rs, 10)
+# x = moving_average(x, 10)
+# s = moving_average(stds, 10)
+
+np.savetxt('ddpg_results/ddpg_t.npy', np.array(Ts))
+np.savetxt('ddpg_results/ddpg_r.npy', np.array(Rs))
+np.savetxt('ddpg_results/ddpg_s.npy', np.array(Ss))
 
 env.close()
 
 
-
-
-def evaluate(model, num_episodes=100):
-    """
-    Evaluate a RL agent
-    :param model: (BaseRLModel object) the RL Agent
-    :param num_episodes: (int) number of episodes to evaluate it
-    :return: (float) Mean reward for the last num_episodes
-    """
-    # This function will only work for a single Environment
-    env = model.get_env()
-    all_episode_rewards = []
-    for i in range(num_episodes):
-        episode_rewards = []
-        done = False
-        obs = env.reset()
-        while not done:
-            # _states are only useful when using LSTM policies
-            action, _states = model.predict(obs)
-            # here, action, rewards and dones are arrays
-            # because we are using vectorized env
-            obs, reward, done, info = env.step(action)
-            episode_rewards.append(reward)
-
-        all_episode_rewards.append(sum(episode_rewards))
-
-    mean_episode_reward = np.mean(all_episode_rewards)
-    print("Mean reward:", mean_episode_reward, "Num episodes:", num_episodes)
-
-    return mean_episode_reward
